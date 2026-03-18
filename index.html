@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sun & Moon Ecliptic Viewer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Cormorant Garamond', serif;
+            background: #06080f;
+            color: #e8e6e3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Starfield canvas */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        /* Everything else above starfield */
+        .header, .main-container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffa500 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header .subtitle {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.875rem;
+            letter-spacing: 0.2em;
+            color: #7a8ba0;
+            text-transform: uppercase;
+        }
+        
+        .main-container {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+            max-width: 1600px;
+            width: 100%;
+            animation: fadeIn 1s ease-out 0.2s both;
+        }
+        
+        .left-panel {
+            flex: 0 0 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding-top: 0;
+        }
+        
+        .right-panel {
+            flex: 0 0 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding-top: 0;
+        }
+        
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .info-card {
+            background: rgba(12, 16, 32, 0.75);
+            border: 1px solid rgba(122, 139, 160, 0.15);
+            border-radius: 10px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+        
+        .info-card:hover {
+            border-color: rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 24px rgba(255, 215, 0, 0.06);
+        }
+        
+        .info-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .info-card .icon {
+            font-size: 1.5rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid rgba(122, 139, 160, 0.07);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .info-row:first-child {
+            padding-top: 0;
+        }
+        
+        .info-label {
+            color: #7a8ba0;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .info-value {
+            font-weight: 600;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            color: #ffd700;
+        }
+        
+        .sun-card h3 {
+            color: #ffd700;
+        }
+        
+        .moon-card h3 {
+            color: #c0c0c0;
+        }
+        
+        /* Moon phase display */
+        .moon-phase-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid rgba(122, 139, 160, 0.07);
+        }
+        
+        .moon-phase-icon {
+            flex-shrink: 0;
+        }
+        
+        .moon-phase-text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        
+        .moon-phase-name {
+            font-weight: 600;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            color: #c0d0e0;
+        }
+        
+        .moon-phase-pct {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: #7a8ba0;
+        }
+        
+        /* Eclipse alert */
+        .eclipse-card {
+            background: rgba(30, 10, 10, 0.75);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            transition: all 0.5s ease;
+        }
+        
+        .eclipse-card.active {
+            border-color: rgba(239, 68, 68, 0.6);
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.15);
+        }
+        
+        .eclipse-card.inactive {
+            background: rgba(12, 16, 32, 0.75);
+            border-color: rgba(122, 139, 160, 0.15);
+        }
+        
+        .eclipse-card h3 {
+            color: #ef4444;
+            font-size: 1.1rem;
+        }
+        
+        .eclipse-card.inactive h3 {
+            color: #7a8ba0;
+        }
+        
+        .eclipse-status {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #ef4444;
+            line-height: 1.6;
+        }
+        
+        .eclipse-card.inactive .eclipse-status {
+            color: #556677;
+        }
+        
+        .visualization-container {
+            position: relative;
+            width: 850px;
+            height: 850px;
+            animation: scaleIn 0.8s ease-out 0.4s both;
+        }
+        
+        #ecliptic-svg {
+            filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.06));
+        }
+        
+        .controls-container {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 10rem;
+        }
+        
+        .control-group {
+            background: rgba(12, 16, 32, 0.75);
+            border: 1px solid rgba(122, 139, 160, 0.15);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            backdrop-filter: blur(12px);
+        }
+        
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .control-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #7a8ba0;
+        }
+        
+        .control-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffd700;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(122, 139, 160, 0.15);
+            outline: none;
+            -webkit-appearance: none;
+            position: relative;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+            cursor: pointer;
+            border: 2px solid #0a0e27;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transition: all 0.2s ease;
+        }
+        
+        .slider::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            transform: scale(1.1);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+            cursor: pointer;
+            border: 2px solid #0a0e27;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transition: all 0.2s ease;
+        }
+        
+        .slider::-moz-range-thumb:hover {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            transform: scale(1.1);
+        }
+        
+        .time-slider::-webkit-slider-thumb {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+        }
+        
+        .time-slider::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 20px rgba(96, 165, 250, 0.8);
+        }
+        
+        .time-slider::-moz-range-thumb {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+        }
+        
+        .time-slider::-moz-range-thumb:hover {
+            box-shadow: 0 0 20px rgba(96, 165, 250, 0.8);
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button-play {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .button-play:hover {
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .button-play.playing {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        .toggle-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            align-items: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .toggle-item label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #7a8ba0;
+            cursor: pointer;
+        }
+        
+        .toggle-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #ffd700;
+        }
+        
+        .utc-clock {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(12, 16, 32, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(122, 139, 160, 0.1);
+        }
+        
+        .utc-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #7a8ba0;
+            margin-bottom: 0.25rem;
+        }
+        
+        .utc-time {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+        
+        /* Elongation arc label */
+        .elongation-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 18px;
+            fill: #60a5fa;
+            opacity: 1;
+        }
+        
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @media (max-width: 1400px) {
+            .main-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .left-panel, .right-panel {
+                flex: none;
+                width: 100%;
+                max-width: 800px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Starfield background -->
+    <canvas id="starfield"></canvas>
+    
+    <div class="header">
+        <h1>Ecliptic Viewer</h1>
+        <div class="subtitle">Celestial Mechanics Observatory</div>
+    </div>
+    
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="info-card sun-card">
+                <h3><span class="icon">☉</span> Sun</h3>
+                <div class="info-row">
+                    <span class="info-label">Longitude</span>
+                    <span class="info-value" id="sun-longitude">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Zodiac</span>
+                    <span class="info-value" id="sun-zodiac">---</span>
+                </div>
+            </div>
+            
+            <div class="info-card">
+                <h3 id="nodes-venus-title">Lunar Nodes</h3>
+                <div id="nodes-info">
+                    <div class="info-row">
+                        <span class="info-label">Ascending ☊</span>
+                        <span class="info-value" id="node-asc">---</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Descending ☋</span>
+                        <span class="info-value" id="node-desc">---</span>
+                    </div>
+                </div>
+                <div id="venus-info" style="display: none;">
+                    <div class="info-row">
+                        <span class="info-label">Venus</span>
+                        <span class="info-value" id="venus-longitude">---</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Jupiter</span>
+                        <span class="info-value" id="jupiter-longitude">---</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Eclipse proximity card -->
+            <div class="info-card eclipse-card inactive" id="eclipse-card">
+                <h3>⚡ Eclipse Watch</h3>
+                <div class="eclipse-status" id="eclipse-status">No eclipse geometry</div>
+            </div>
+        </div>
+        
+        <div class="center-panel">
+            <div class="visualization-container">
+                <svg id="ecliptic-svg" width="850" height="850" viewBox="-25 -25 850 850">
+                    <defs>
+                        <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" style="stop-color:#111628;stop-opacity:0.9" />
+                            <stop offset="100%" style="stop-color:#06080f;stop-opacity:1" />
+                        </radialGradient>
+                        
+                        <!-- Sun glow filters -->
+                        <filter id="sunGlow" x="-100%" y="-100%" width="300%" height="300%">
+                            <feGaussianBlur stdDeviation="6" result="glow1"/>
+                            <feGaussianBlur stdDeviation="12" result="glow2"/>
+                            <feMerge>
+                                <feMergeNode in="glow2"/>
+                                <feMergeNode in="glow1"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        
+                        <filter id="moonGlow" x="-100%" y="-100%" width="300%" height="300%">
+                            <feGaussianBlur stdDeviation="3" result="glow"/>
+                            <feMerge>
+                                <feMergeNode in="glow"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        
+                        <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="2" result="glow"/>
+                            <feMerge>
+                                <feMergeNode in="glow"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        
+                        <!-- Realistic sun gradient with limb darkening -->
+                        <radialGradient id="sunBody" cx="40%" cy="40%" r="55%">
+                            <stop offset="0%" style="stop-color:#fff8e0" />
+                            <stop offset="30%" style="stop-color:#ffd700" />
+                            <stop offset="70%" style="stop-color:#f0a500" />
+                            <stop offset="100%" style="stop-color:#c06000" />
+                        </radialGradient>
+                        
+                        <!-- Sun corona -->
+                        <radialGradient id="sunCorona" cx="50%" cy="50%" r="50%">
+                            <stop offset="40%" style="stop-color:#ffd700;stop-opacity:0.15" />
+                            <stop offset="100%" style="stop-color:#ffd700;stop-opacity:0" />
+                        </radialGradient>
+                        
+                        <!-- Moon gradient -->
+                        <radialGradient id="moonBody" cx="40%" cy="40%" r="55%">
+                            <stop offset="0%" style="stop-color:#e8e8e8" />
+                            <stop offset="50%" style="stop-color:#c0c0c0" />
+                            <stop offset="100%" style="stop-color:#808080" />
+                        </radialGradient>
+                        
+                        <!-- Moon shadow (for phase) - positioned dynamically -->
+                        <clipPath id="moonClip">
+                            <circle cx="0" cy="0" r="11" />
+                        </clipPath>
+                        
+                        <!-- Ecliptic ring glow -->
+                        <filter id="eclipticGlow" x="-5%" y="-5%" width="110%" height="110%">
+                            <feGaussianBlur stdDeviation="2" result="glow"/>
+                            <feMerge>
+                                <feMergeNode in="glow"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        
+                        <!-- Trail gradient -->
+                        <linearGradient id="trailGradient" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:0" />
+                            <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:0.6" />
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Background -->
+                    <circle cx="400" cy="400" r="395" fill="url(#bgGradient)" />
+                    <circle cx="400" cy="400" r="395" fill="none" stroke="rgba(122,139,160,0.08)" stroke-width="1" />
+                    
+                    <!-- Ecliptic circle -->
+                    <circle cx="400" cy="400" r="230" fill="none" stroke="#fbbf24" stroke-width="1.5" opacity="0.35" />
+                    <circle cx="400" cy="400" r="230" fill="none" stroke="#fbbf24" stroke-width="0.5" opacity="0.15" filter="url(#eclipticGlow)" />
+                    
+                    <!-- Moon's orbit path -->
+                    <path id="moon-orbit" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.3" />
+                    
+                    <!-- Moon orbital trail (last 7 days) -->
+                    <path id="moon-trail" fill="none" stroke-width="2.5" opacity="0.7" />
+                    
+                    <!-- Phase lines -->
+                    <g id="phase-lines" style="display: none;">
+                        <line id="new-full-line" x1="100" y1="400" x2="700" y2="400" stroke="#60a5fa" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+                        <line id="quarter-line" x1="400" y1="100" x2="400" y2="700" stroke="#f472b6" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+                        <!-- Phase labels -->
+                        <text id="label-new" fill="#60a5fa" font-family="Space Mono, monospace" font-size="16" opacity="0.6" font-weight="700" text-anchor="middle">NEW</text>
+                        <text id="label-full" fill="#60a5fa" font-family="Space Mono, monospace" font-size="16" opacity="0.6" font-weight="700" text-anchor="middle">FULL</text>
+                        <text id="label-q1" fill="#f472b6" font-family="Space Mono, monospace" font-size="16" opacity="0.6" font-weight="700" text-anchor="middle">1ST Q</text>
+                        <text id="label-q3" fill="#f472b6" font-family="Space Mono, monospace" font-size="16" opacity="0.6" font-weight="700" text-anchor="middle">3RD Q</text>
+                    </g>
+                    
+                    <!-- Zodiac signs -->
+                    <g id="zodiac-signs" style="display: none;"></g>
+                    
+                    <!-- Degree markers -->
+                    <g id="degree-markers">
+                        <text x="760" y="405" text-anchor="middle" fill="#10b981" font-size="28" font-weight="600">0°</text>
+                        <text x="810" y="405" text-anchor="middle" fill="#10b981" font-size="20" font-weight="600">♈</text>
+                        <text x="400" y="35" text-anchor="middle" fill="#9ca3af" font-size="26">90°</text>
+                        <text x="40" y="405" text-anchor="middle" fill="#f59e0b" font-size="28" font-weight="600">180°</text>
+                        <text x="-10" y="405" text-anchor="middle" fill="#f59e0b" font-size="20" font-weight="600">♎</text>
+                        <text x="400" y="760" text-anchor="middle" fill="#9ca3af" font-size="26">270°</text>
+                    </g>
+                    
+                    <!-- Lunar nodes -->
+                    <g id="ascending-node">
+                        <circle cx="0" cy="0" r="5" fill="#10b981" opacity="0.6" filter="url(#nodeGlow)" />
+                    </g>
+                    <g id="descending-node">
+                        <circle cx="0" cy="0" r="5" fill="#ef4444" opacity="0.6" filter="url(#nodeGlow)" />
+                    </g>
+                    
+                    <text id="ascending-node-symbol" text-anchor="middle" fill="#10b981" font-size="28" font-weight="600">☊</text>
+                    <text id="descending-node-symbol" text-anchor="middle" fill="#ef4444" font-size="28" font-weight="600">☋</text>
+                    
+                    <!-- Venus marker -->
+                    <text id="venus-marker" text-anchor="middle" fill="#ff69ff" font-size="20" font-weight="600" style="display: none;">♀</text>
+                    
+                    <!-- Jupiter marker -->
+                    <text id="jupiter-marker" text-anchor="middle" fill="#ff8844" font-size="20" font-weight="600" style="display: none;">♃</text>
+                    
+                    <!-- Elongation arc (Sun to Moon) -->
+                    <path id="elongation-arc" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,3" opacity="0.75" />
+                    <text id="elongation-label" class="elongation-label" text-anchor="middle"></text>
+                    
+                    <!-- Sun group -->
+                    <g id="sun-group">
+                        <!-- Corona -->
+                        <circle cx="0" cy="0" r="35" fill="url(#sunCorona)" />
+                        <!-- Body with limb darkening -->
+                        <circle cx="0" cy="0" r="16" fill="url(#sunBody)" filter="url(#sunGlow)" />
+                    </g>
+                    
+                    <!-- Moon group -->
+                    <g id="moon-group">
+                        <!-- Moon body -->
+                        <circle cx="0" cy="0" r="11" fill="url(#moonBody)" filter="url(#moonGlow)" />
+                        <!-- Phase shadow overlay -->
+                        <ellipse id="moon-phase-shadow" cx="0" cy="0" rx="11" ry="11" fill="rgba(6,8,15,0.85)" clip-path="url(#moonClip)" />
+                    </g>
+                </svg>
+            </div>
+            
+            <div class="controls-container">
+                <div class="control-group">
+                    <input type="range" class="slider" id="day-slider" min="-60" max="60" value="0" step="1">
+                    <div class="control-header" style="margin-top: 1rem; margin-bottom: 0;">
+                        <span class="control-label">Date <span id="slider-date" style="color: #e8e6e3; margin-left: 0.5rem; font-size: 1rem; font-weight: 600;">--/--/--</span></span>
+                        <span class="control-value" id="day-offset-display">Today</span>
+                    </div>
+                </div>
+                
+                <div class="utc-clock">
+                    <div class="utc-label">Current UTC</div>
+                    <div class="utc-time" id="real-utc-date">--- --, ----</div>
+                    <div class="utc-time" id="real-utc-clock">--:--</div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <span class="control-label">Time (UTC)</span>
+                        <span class="control-value" id="time-display">00:00:00</span>
+                    </div>
+                    <input type="range" class="slider time-slider" id="time-slider" min="0" max="86399" value="0" step="60">
+                </div>
+                
+                <div class="toggle-group">
+                    <button class="button" id="reset-button">Reset to Now</button>
+                    <button class="button button-play" id="play-button">▶ Play</button>
+                    <div class="toggle-item">
+                        <input type="checkbox" class="toggle-checkbox" id="toggle-zodiac">
+                        <label for="toggle-zodiac">Zodiac</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" class="toggle-checkbox" id="toggle-phase-lines">
+                        <label for="toggle-phase-lines">Phases</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" class="toggle-checkbox" id="toggle-venus">
+                        <label for="toggle-venus">V & J</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" class="toggle-checkbox" id="toggle-trail" checked>
+                        <label for="toggle-trail">Trail</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="info-card moon-card">
+                <h3><span class="icon">☽</span> Moon</h3>
+                <!-- Moon phase visual -->
+                <div class="moon-phase-row">
+                    <svg class="moon-phase-icon" width="42" height="42" viewBox="0 0 42 42">
+                        <circle cx="21" cy="21" r="18" fill="#2a2a3a" />
+                        <circle cx="21" cy="21" r="18" fill="#c8c8d0" id="phase-lit-bg" />
+                        <ellipse cx="21" cy="21" rx="18" ry="18" fill="#1a1a2a" id="phase-shadow-overlay" />
+                    </svg>
+                    <div class="moon-phase-text">
+                        <span class="moon-phase-name" id="moon-phase-name">---</span>
+                        <span class="moon-phase-pct" id="moon-phase-pct">---</span>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Longitude</span>
+                    <span class="info-value" id="moon-longitude">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Latitude</span>
+                    <span class="info-value" id="moon-latitude">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Zodiac</span>
+                    <span class="info-value" id="moon-zodiac">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Meridian</span>
+                    <span class="info-value" id="moon-meridian">---</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Elongation</span>
+                    <span class="info-value" id="moon-elongation">---</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ========================================
+        // STARFIELD BACKGROUND
+        // ========================================
+        
+        (function initStarfield() {
+            const canvas = document.getElementById('starfield');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+            const STAR_COUNT = 320;
+            
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            
+            function createStars() {
+                stars = [];
+                for (let i = 0; i < STAR_COUNT; i++) {
+                    stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        r: Math.random() * 1.4 + 0.2,
+                        baseAlpha: Math.random() * 0.6 + 0.2,
+                        twinkleSpeed: Math.random() * 0.02 + 0.005,
+                        twinkleOffset: Math.random() * Math.PI * 2,
+                        // Slight color variation
+                        hue: Math.random() < 0.1 ? (Math.random() < 0.5 ? 30 : 220) : 0,
+                        sat: Math.random() < 0.1 ? 40 : 0,
+                    });
+                }
+            }
+            
+            function drawStars(time) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                for (const star of stars) {
+                    const twinkle = Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+                    const alpha = star.baseAlpha + twinkle * 0.2;
+                    
+                    if (star.hue) {
+                        ctx.fillStyle = `hsla(${star.hue}, ${star.sat}%, 85%, ${Math.max(0.05, alpha)})`;
+                    } else {
+                        ctx.fillStyle = `rgba(220, 225, 235, ${Math.max(0.05, alpha)})`;
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                requestAnimationFrame(drawStars);
+            }
+            
+            window.addEventListener('resize', () => {
+                resize();
+                createStars();
+            });
+            
+            resize();
+            createStars();
+            requestAnimationFrame(drawStars);
+        })();
+        
+        // ========================================
+        // CONFIGURATION
+        // ========================================
+        
+        const ORBIT_R = 230; // Orbital circle radius in SVG pixels
+        
+        // ========================================
+        // ASTRONOMICAL CALCULATION FUNCTIONS
+        // ========================================
+        
+        function mod360(angle) {
+            angle = angle % 360;
+            if (angle < 0) angle += 360;
+            return angle;
+        }
+        
+        function toRadians(deg) {
+            return deg * Math.PI / 180;
+        }
+        
+        function toDegrees(rad) {
+            return rad * 180 / Math.PI;
+        }
+        
+        function getJulianDate(date) {
+            return (date.getTime() / 86400000) + 2440587.5;
+        }
+        
+        function getDaysSinceJ2000(date) {
+            const jd = getJulianDate(date);
+            return jd - 2451545.0;
+        }
+        
+        // Sun's ecliptic longitude — simplified VSOP87
+        function calculateSunLongitude(D) {
+            const g = mod360(357.529 + 0.98560028 * D);
+            const q = mod360(280.459 + 0.98564736 * D);
+            const lambda = mod360(q + 1.915 * Math.sin(toRadians(g)) + 0.020 * Math.sin(toRadians(2 * g)));
+            return lambda;
+        }
+        
+        // Moon's position — 35-term longitude, 6-term latitude
+        function calculateMoonPosition(D, sunLon) {
+            const L_mean = mod360(218.316 + 13.176396 * D);
+            const M_moon = mod360(134.963 + 13.064993 * D);
+            const F = mod360(93.272 + 13.229350 * D);
+            const g = mod360(357.529 + 0.985600 * D);
+            const D_moon = mod360(297.850 + 12.190749 * D);
+            
+            const lonTerms = [
+                [6.289, 0, 1, 0, 0],
+                [-1.274, 2, -1, 0, 0],
+                [0.658, 2, 0, 0, 0],
+                [-0.213, 0, 2, 0, 0],
+                [-0.186, 0, 0, 1, 0],
+                [-0.114, 0, 0, 0, 2],
+                [-0.059, 2, -2, 0, 0],
+                [-0.057, 2, -1, 1, 0],
+                [0.053, 2, 0, -1, 0],
+                [0.046, 0, 1, 2, 0],
+                [0.041, 0, 1, -2, 0],
+                [-0.035, 0, 0, -1, 0],
+                [-0.031, 0, 0, 1, 2],
+                [0.031, 0, 1, 0, 0],
+                [0.015, 0, 1, -1, 0],
+                [0.015, 0, 2, 1, 0],
+                [-0.015, 0, 0, 1, 1],
+                [-0.012, 0, 2, -1, -1],
+                [-0.011, 0, 1, 2, 0],
+                [0.011, 0, 2, 0, 0],
+                [0.010, 0, 2, 0, -2],
+                [0.010, 0, 4, 0, 0],
+                [0.010, 0, 4, -1, 0],
+                [0.009, 0, 2, 1, -1],
+                [0.008, 0, 2, -2, 1],
+                [0.007, 0, 4, -2, 0],
+                [-0.006, 0, 2, 0, 2],
+                [-0.006, 0, 2, 0, -2],
+                [-0.005, 0, 2, -2, -1],
+                [0.005, 0, 2, 0, 1, -2],
+                [-0.005, 0, 2, -1, 2],
+                [-0.004, 0, 2, -1, 0],
+                [0.004, 0, 2, -1, 0, -2],
+                [-0.004, 0, 2, 1, 0],
+                [0.004, 0, 0, 3, 0]
+            ];
+            
+            let lonSum = 0;
+            for (let term of lonTerms) {
+                const [coeff, d_mult, m_mult, g_mult, f_mult] = term;
+                const argument = d_mult * D_moon + m_mult * M_moon + g_mult * g + f_mult * F;
+                lonSum += coeff * Math.sin(toRadians(argument));
+            }
+            
+            const longitude = mod360(L_mean + lonSum);
+            
+            const latTerms = [
+                [5.128, 0, 0, 0, 1],
+                [0.281, 0, 1, 0, 1],
+                [0.277, 0, 1, 0, -1],
+                [0.173, 2, 0, 0, -1],
+                [0.055, 2, 0, 0, 1],
+                [0.046, 2, -1, 0, -1]
+            ];
+            
+            let latSum = 0;
+            for (let term of latTerms) {
+                const [coeff, d_mult, m_mult, g_mult, f_mult] = term;
+                const argument = d_mult * D_moon + m_mult * M_moon + g_mult * g + f_mult * F;
+                latSum += coeff * Math.sin(toRadians(argument));
+            }
+            
+            return { longitude, latitude: latSum };
+        }
+        
+        function calculateAscendingNode(D) {
+            return mod360(125.0445 - 0.0529539 * D);
+        }
+        
+        // Venus — 5-term Keplerian
+        function calculateVenusLongitude(D) {
+            const L = mod360(181.979801 + 1.60213034 * D);
+            const M = mod360(212.603219 + 1.60213034 * D);
+            let longitude = L;
+            longitude += 0.72333 * Math.sin(toRadians(M));
+            longitude += 0.00493 * Math.sin(toRadians(2 * M));
+            longitude += -0.00015 * Math.sin(toRadians(3 * M));
+            longitude += 0.00017 * Math.sin(toRadians(4 * M));
+            longitude += -0.00014 * Math.sin(toRadians(5 * M));
+            return mod360(longitude);
+        }
+        
+        // Jupiter — 5-term Keplerian
+        function calculateJupiterLongitude(D) {
+            const L = mod360(34.351519 + 0.08308529 * D);
+            const M = mod360(19.895753 + 0.08308529 * D);
+            let longitude = L;
+            longitude += 5.55549 * Math.sin(toRadians(M));
+            longitude += -0.16773 * Math.sin(toRadians(2 * M));
+            longitude += 0.01677 * Math.sin(toRadians(3 * M));
+            longitude += -0.00183 * Math.sin(toRadians(4 * M));
+            longitude += 0.00019 * Math.sin(toRadians(5 * M));
+            return mod360(longitude);
+        }
+        
+        function getZodiacPosition(lon) {
+            const signs = ['Aries ♈', 'Taurus ♉', 'Gemini ♊', 'Cancer ♋',
+                          'Leo ♌', 'Virgo ♍', 'Libra ♎', 'Scorpio ♏',
+                          'Sagittarius ♐', 'Capricorn ♑', 'Aquarius ♒', 'Pisces ♓'];
+            const signIndex = Math.floor(lon / 30);
+            const degreesInSign = lon % 30;
+            return `${degreesInSign.toFixed(1)}° ${signs[signIndex]}`;
+        }
+        
+        function getMeridianTime(sunLon, moonLon) {
+            let diff = moonLon - sunLon;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            const hourOffset = diff / 15;
+            let finalHour = 12 + hourOffset;
+            if (finalHour < 0) finalHour += 24;
+            if (finalHour >= 24) finalHour -= 24;
+            const h = Math.floor(finalHour);
+            const m = Math.floor((finalHour - h) * 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+        
+        // ========================================
+        // MOON PHASE CALCULATIONS
+        // ========================================
+        
+        function calculateElongation(sunLon, moonLon) {
+            let diff = moonLon - sunLon;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            return diff; // signed: positive = moon ahead of sun
+        }
+        
+        function getMoonPhaseInfo(elongation) {
+            const absElong = Math.abs(elongation);
+            // Illumination fraction (approximate)
+            const illum = (1 - Math.cos(toRadians(elongation))) / 2 * 100;
+            
+            // Phase name
+            let name;
+            const e = elongation < 0 ? elongation + 360 : elongation;
+            const pos = mod360(e);
+            
+            if (pos < 11.25 || pos >= 348.75) name = 'New Moon';
+            else if (pos < 33.75) name = 'Waxing Crescent';
+            else if (pos < 56.25) name = 'Waxing Crescent';
+            else if (pos < 78.75) name = 'Waxing Crescent';
+            else if (pos < 101.25) name = 'First Quarter';
+            else if (pos < 123.75) name = 'Waxing Gibbous';
+            else if (pos < 146.25) name = 'Waxing Gibbous';
+            else if (pos < 168.75) name = 'Waxing Gibbous';
+            else if (pos < 191.25) name = 'Full Moon';
+            else if (pos < 213.75) name = 'Waning Gibbous';
+            else if (pos < 236.25) name = 'Waning Gibbous';
+            else if (pos < 258.75) name = 'Waning Gibbous';
+            else if (pos < 281.25) name = 'Third Quarter';
+            else if (pos < 303.75) name = 'Waning Crescent';
+            else if (pos < 326.25) name = 'Waning Crescent';
+            else name = 'Waning Crescent';
+            
+            return { name, illumination: illum, positiveElongation: pos };
+        }
+        
+        // Update the small phase icon in the Moon card using a canvas-drawn approach
+        // Draw moon phase using explicit point calculation — no sweep flag ambiguity
+        function moonPhasePath(cx, cy, r, positiveElongation) {
+            // We draw the SHADOW area over a lit circle background
+            // Waxing (0-180): shadow shrinks from full coverage to nothing, on the LEFT
+            // Waning (180-360): shadow grows from nothing to full coverage, on the RIGHT
+            
+            const cosE = Math.cos(toRadians(positiveElongation));
+            const terminatorRx = Math.abs(cosE) * r;
+            
+            // Build path from discrete points for the shadow region
+            const points = [];
+            const steps = 64;
+            
+            if (positiveElongation <= 180) {
+                // Shadow on LEFT side
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const angle = -Math.PI / 2 + Math.PI * t;
+                    const x = cx - r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+                    points.push({ x, y });
+                }
+                for (let i = steps; i >= 0; i--) {
+                    const t = i / steps;
+                    const angle = -Math.PI / 2 + Math.PI * t;
+                    const tx = cx + cosE * r * Math.cos(angle);
+                    const ty = cy + r * Math.sin(angle);
+                    points.push({ x: tx, y: ty });
+                }
+            } else {
+                // Shadow on RIGHT side (waning)
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const angle = -Math.PI / 2 + Math.PI * t;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+                    points.push({ x, y });
+                }
+                for (let i = steps; i >= 0; i--) {
+                    const t = i / steps;
+                    const angle = -Math.PI / 2 + Math.PI * t;
+                    const tx = cx - cosE * r * Math.cos(angle);
+                    const ty = cy + r * Math.sin(angle);
+                    points.push({ x: tx, y: ty });
+                }
+            }
+            
+            let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+            for (let i = 1; i < points.length; i++) {
+                d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+            }
+            d += ' Z';
+            return d;
+        }
+        
+        function updateMoonPhaseIcon(positiveElongation) {
+            const svg = document.querySelector('.moon-phase-icon');
+            const cx = 21, cy = 21, r = 18;
+            
+            const litBg = document.getElementById('phase-lit-bg');
+            const shadowEl = document.getElementById('phase-shadow-overlay');
+            litBg.style.display = 'none';
+            shadowEl.style.display = 'none';
+            
+            let darkBg = document.getElementById('phase-dark-bg');
+            if (!darkBg) {
+                darkBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                darkBg.id = 'phase-dark-bg';
+                darkBg.setAttribute('cx', cx);
+                darkBg.setAttribute('cy', cy);
+                darkBg.setAttribute('r', r);
+                darkBg.setAttribute('fill', '#c8c8d0');
+                svg.appendChild(darkBg);
+            }
+            
+            let phasePath = document.getElementById('phase-path');
+            if (!phasePath) {
+                phasePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                phasePath.id = 'phase-path';
+                phasePath.setAttribute('fill', '#1a1a2a');
+                svg.appendChild(phasePath);
+            }
+            
+            phasePath.setAttribute('d', moonPhasePath(cx, cy, r, positiveElongation));
+        }
+        
+        // Update SVG moon phase shadow on the main visualization
+        // The lit side always faces toward the Sun's position on the chart
+        function updateMoonPhaseShadow(positiveElongation, sunLon, moonLon) {
+            const shadow = document.getElementById('moon-phase-shadow');
+            shadow.style.display = 'none';
+            
+            const r = 11;
+            const moonGroup = document.getElementById('moon-group');
+            
+            let phaseGroup = document.getElementById('moon-phase-group');
+            if (!phaseGroup) {
+                phaseGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                phaseGroup.id = 'moon-phase-group';
+                moonGroup.appendChild(phaseGroup);
+            }
+            
+            let darkCircle = document.getElementById('moon-dark-circle');
+            if (!darkCircle) {
+                darkCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                darkCircle.id = 'moon-dark-circle';
+                darkCircle.setAttribute('cx', 0);
+                darkCircle.setAttribute('cy', 0);
+                darkCircle.setAttribute('r', r);
+                darkCircle.setAttribute('fill', 'url(#moonBody)');
+                phaseGroup.appendChild(darkCircle);
+            }
+            
+            let litPath = document.getElementById('moon-lit-path');
+            if (!litPath) {
+                litPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                litPath.id = 'moon-lit-path';
+                litPath.setAttribute('fill', 'rgba(6,8,15,0.82)');
+                phaseGroup.appendChild(litPath);
+            }
+            
+            // illumination: 0 at new, 1 at full
+            const illum = (1 - Math.cos(toRadians(positiveElongation))) / 2;
+            
+            // The terminator is PERPENDICULAR to the orbit (radial direction).
+            // We draw the shadow in local coords where:
+            //   +x = toward center (toward Sun) = the lit side
+            //   -x = away from center = the shadow side
+            // Then rotate the whole thing by the Moon's position angle on the chart.
+            
+            // Shadow region: the half facing away from Sun (-x side),
+            // with the terminator cutting into it based on illumination.
+            //
+            // terminatorX: where the terminator sits along the x-axis
+            //   illum=0 (new): shadow = full disk → terminator at +r
+            //   illum=0.5 (quarter): shadow = half disk → terminator at 0
+            //   illum=1 (full): shadow = nothing → terminator at -r
+            // So terminatorX = r * (1 - 2*illum) = r * cos(elongation)
+            
+            let cosE = Math.cos(toRadians(positiveElongation));
+            // At small elongations, crescent is too thin to see on an 11px moon.
+            // Clamp so there's always a visible sliver when not at exact new/full moon
+            const maxCosE = 0.72;
+            if (positiveElongation > 3 && positiveElongation < 177) {
+                cosE = Math.min(cosE, maxCosE);
+            }
+            if (positiveElongation > 183 && positiveElongation < 357) {
+                cosE = Math.min(cosE, maxCosE);
+            }
+            const steps = 128;
+            const points = [];
+            const rShadow = r + 1.0; // Oversize shadow to fully cover background
+            
+            // Left semicircle (-x side, from top to bottom going left)
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const angle = -Math.PI / 2 + Math.PI * t;
+                points.push({ x: -rShadow * Math.cos(angle), y: rShadow * Math.sin(angle) });
+            }
+            // Terminator (from bottom back to top)
+            for (let i = steps; i >= 0; i--) {
+                const t = i / steps;
+                const angle = -Math.PI / 2 + Math.PI * t;
+                points.push({ x: cosE * rShadow * Math.cos(angle), y: r * Math.sin(angle) });
+            }
+            
+            let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+            for (let i = 1; i < points.length; i++) {
+                d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+            }
+            d += ' Z';
+            litPath.setAttribute('d', d);
+            
+            // Rotate so +x (local) points toward the Sun on the chart.
+            // In our chart coordinate system:
+            //   lonLatToXY: x = cx + R*cos(lon), y = cy - R*sin(lon)
+            // The radial direction (center to Moon) at moonLon is:
+            //   direction = (cos(moonLon), -sin(moonLon))
+            // The Sun is roughly toward the center from the Moon's perspective.
+            // So +x (toward Sun) should point from Moon toward center = inward = 
+            //   angle 180° + moonLon in chart coords (pointing inward)
+            // Rotate so terminator is perpendicular to orbit, lit side faces Sun
+            // Waxing (0-180): rotate = 90 - moonLon
+            // Waning (180-360): rotate = 270 - moonLon (flips the lit side)
+            const rotationDeg = positiveElongation <= 180 
+                ? (90 - moonLon) 
+                : (270 - moonLon);
+            
+            phaseGroup.setAttribute('transform', `rotate(${rotationDeg})`);
+        }
+        
+        // ========================================
+        // ECLIPSE PROXIMITY DETECTION
+        // ========================================
+        
+        function checkEclipseProximity(sunLon, moonLon, moonLat, nodeLon) {
+            const card = document.getElementById('eclipse-card');
+            const status = document.getElementById('eclipse-status');
+            
+            // Distance of Moon from nearest node
+            let moonFromAsc = Math.abs(mod360(moonLon - nodeLon));
+            if (moonFromAsc > 180) moonFromAsc = 360 - moonFromAsc;
+            let moonFromDesc = Math.abs(mod360(moonLon - mod360(nodeLon + 180)));
+            if (moonFromDesc > 180) moonFromDesc = 360 - moonFromDesc;
+            const moonNodeDist = Math.min(moonFromAsc, moonFromDesc);
+            
+            // Distance of Sun from nearest node
+            let sunFromAsc = Math.abs(mod360(sunLon - nodeLon));
+            if (sunFromAsc > 180) sunFromAsc = 360 - sunFromAsc;
+            let sunFromDesc = Math.abs(mod360(sunLon - mod360(nodeLon + 180)));
+            if (sunFromDesc > 180) sunFromDesc = 360 - sunFromDesc;
+            const sunNodeDist = Math.min(sunFromAsc, sunFromDesc);
+            
+            // Elongation check
+            let elongAbs = Math.abs(calculateElongation(sunLon, moonLon));
+            const nearNew = elongAbs < 15; // Near new moon
+            const nearFull = elongAbs > 165; // Near full moon
+            
+            // Eclipse season: Sun within ~18° of a node
+            const inEclipseSeason = sunNodeDist < 18;
+            
+            if (inEclipseSeason && (nearNew || nearFull)) {
+                card.classList.add('active');
+                card.classList.remove('inactive');
+                
+                const type = nearNew ? 'SOLAR' : 'LUNAR';
+                const nearNode = moonFromAsc < moonFromDesc ? 'Ascending' : 'Descending';
+                const proximity = sunNodeDist < 10 ? 'HIGH' : 'MODERATE';
+                
+                status.innerHTML = `
+                    <strong>${proximity} probability</strong><br>
+                    ${type} eclipse geometry<br>
+                    Sun ${sunNodeDist.toFixed(1)}° from ${nearNode} Node<br>
+                    Moon ${moonNodeDist.toFixed(1)}° from node
+                `;
+            } else if (inEclipseSeason) {
+                card.classList.remove('active');
+                card.classList.remove('inactive');
+                card.style.borderColor = 'rgba(239, 136, 68, 0.25)';
+                status.innerHTML = `Eclipse season active<br>Sun ${sunNodeDist.toFixed(1)}° from node`;
+            } else {
+                card.classList.remove('active');
+                card.classList.add('inactive');
+                card.style.borderColor = '';
+                status.textContent = `Sun ${sunNodeDist.toFixed(1)}° from nearest node`;
+            }
+        }
+        
+        // ========================================
+        // COORDINATE TRANSFORMATION
+        // ========================================
+        
+        function lonLatToXY(lon, lat, radius, exaggeration = 4) {
+            const lonRad = toRadians(lon);
+            const effectiveRadius = radius * (1 + (lat * exaggeration) / 90);
+            const x = effectiveRadius * Math.cos(lonRad);
+            const y = -effectiveRadius * Math.sin(lonRad);
+            return { x: x + 400, y: y + 400 };
+        }
+        
+        // ========================================
+        // RENDERING FUNCTIONS
+        // ========================================
+        
+        function drawMoonOrbit(nodeLon) {
+            let pathData = '';
+            for (let angle = 0; angle <= 360; angle += 2) {
+                const angleFromNode = angle - nodeLon;
+                const lat = 5.15 * Math.sin(toRadians(angleFromNode));
+                const pos = lonLatToXY(angle, lat, ORBIT_R);
+                pathData += angle === 0 ? `M ${pos.x} ${pos.y}` : ` L ${pos.x} ${pos.y}`;
+            }
+            pathData += ' Z';
+            document.getElementById('moon-orbit').setAttribute('d', pathData);
+        }
+        
+        function drawZodiacSigns() {
+            const zodiacGroup = document.getElementById('zodiac-signs');
+            zodiacGroup.innerHTML = '';
+            
+            const signs = [
+                { symbol: '♈', angle: 0 }, { symbol: '♉', angle: 30 },
+                { symbol: '♊', angle: 60 }, { symbol: '♋', angle: 90 },
+                { symbol: '♌', angle: 120 }, { symbol: '♍', angle: 150 },
+                { symbol: '♎', angle: 180 }, { symbol: '♏', angle: 210 },
+                { symbol: '♐', angle: 240 }, { symbol: '♑', angle: 270 },
+                { symbol: '♒', angle: 300 }, { symbol: '♓', angle: 330 }
+            ];
+            
+            signs.forEach(sign => {
+                if (sign.angle === 0 || sign.angle === 180) return;
+                const pos = lonLatToXY(sign.angle, 0, 395);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', pos.x);
+                text.setAttribute('y', pos.y);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#7a8ba0');
+                text.setAttribute('font-size', '24');
+                text.setAttribute('opacity', '0.5');
+                text.textContent = sign.symbol;
+                zodiacGroup.appendChild(text);
+            });
+        }
+        
+        function updatePhaseLines(sunLon) {
+            const newPos = lonLatToXY(sunLon, 0, ORBIT_R + 40);
+            const fullPos = lonLatToXY(mod360(sunLon + 180), 0, ORBIT_R + 40);
+            const q1Pos = lonLatToXY(mod360(sunLon + 90), 0, ORBIT_R + 40);
+            const q3Pos = lonLatToXY(mod360(sunLon + 270), 0, ORBIT_R + 40);
+            
+            document.getElementById('new-full-line').setAttribute('x1', newPos.x);
+            document.getElementById('new-full-line').setAttribute('y1', newPos.y);
+            document.getElementById('new-full-line').setAttribute('x2', fullPos.x);
+            document.getElementById('new-full-line').setAttribute('y2', fullPos.y);
+            
+            document.getElementById('quarter-line').setAttribute('x1', q1Pos.x);
+            document.getElementById('quarter-line').setAttribute('y1', q1Pos.y);
+            document.getElementById('quarter-line').setAttribute('x2', q3Pos.x);
+            document.getElementById('quarter-line').setAttribute('y2', q3Pos.y);
+            
+            // Position labels at endpoints
+            const labelOffset = 12;
+            const newLabel = lonLatToXY(sunLon, 0, ORBIT_R + 70);
+            const fullLabel = lonLatToXY(mod360(sunLon + 180), 0, ORBIT_R + 70);
+            const q1Label = lonLatToXY(mod360(sunLon + 90), 0, ORBIT_R + 70);
+            const q3Label = lonLatToXY(mod360(sunLon + 270), 0, ORBIT_R + 70);
+            
+            document.getElementById('label-new').setAttribute('x', newLabel.x);
+            document.getElementById('label-new').setAttribute('y', newLabel.y);
+            document.getElementById('label-full').setAttribute('x', fullLabel.x);
+            document.getElementById('label-full').setAttribute('y', fullLabel.y);
+            document.getElementById('label-q1').setAttribute('x', q1Label.x);
+            document.getElementById('label-q1').setAttribute('y', q1Label.y);
+            document.getElementById('label-q3').setAttribute('x', q3Label.x);
+            document.getElementById('label-q3').setAttribute('y', q3Label.y);
+        }
+        
+        // Draw elongation arc between Sun and Moon
+        function drawElongationArc(sunLon, moonLon, sunXY, moonXY) {
+            const elong = calculateElongation(sunLon, moonLon);
+            const posElong = mod360(elong < 0 ? elong + 360 : elong);
+            
+            // Draw a small arc at a reduced radius
+            const arcRadius = 80;
+            const startAngle = toRadians(sunLon);
+            const steps = Math.max(8, Math.floor(Math.abs(elong) / 3));
+            let pathData = '';
+            
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const angle = sunLon + elong * t;
+                const rad = toRadians(angle);
+                const x = 400 + arcRadius * Math.cos(rad);
+                const y = 400 - arcRadius * Math.sin(rad);
+                pathData += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+            }
+            
+            document.getElementById('elongation-arc').setAttribute('d', pathData);
+            
+            // Position label at midpoint of arc
+            const midAngle = toRadians(sunLon + elong / 2);
+            const labelR = arcRadius + 14;
+            const lx = 400 + labelR * Math.cos(midAngle);
+            const ly = 400 - labelR * Math.sin(midAngle);
+            
+            const label = document.getElementById('elongation-label');
+            label.setAttribute('x', lx);
+            label.setAttribute('y', ly);
+            label.textContent = `${Math.abs(elong).toFixed(1)}°`;
+        }
+        
+        // Draw Moon's orbital trail (past 7 days)
+        function drawMoonTrail(currentDate) {
+            if (!showTrail) {
+                document.getElementById('moon-trail').setAttribute('d', '');
+                return;
+            }
+            
+            const trailDays = 7;
+            const stepsPerDay = 4;
+            const totalSteps = trailDays * stepsPerDay;
+            const svg = document.getElementById('ecliptic-svg');
+            
+            // Remove old trail segments
+            const oldTrails = svg.querySelectorAll('.trail-segment');
+            oldTrails.forEach(el => el.remove());
+            
+            // Calculate positions for the trail
+            const positions = [];
+            for (let i = totalSteps; i >= 0; i--) {
+                const trailDate = new Date(currentDate.getTime() - i * (86400000 / stepsPerDay));
+                const D = getDaysSinceJ2000(trailDate);
+                const sunLon = calculateSunLongitude(D);
+                const moonPos = calculateMoonPosition(D, sunLon);
+                const xy = lonLatToXY(moonPos.longitude, moonPos.latitude, ORBIT_R);
+                positions.push(xy);
+            }
+            
+            // Draw as segments with increasing opacity
+            for (let i = 1; i < positions.length; i++) {
+                const opacity = (i / positions.length) * 0.5;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.classList.add('trail-segment');
+                line.setAttribute('x1', positions[i - 1].x);
+                line.setAttribute('y1', positions[i - 1].y);
+                line.setAttribute('x2', positions[i].x);
+                line.setAttribute('y2', positions[i].y);
+                line.setAttribute('stroke', '#60a5fa');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('opacity', opacity.toFixed(2));
+                line.setAttribute('stroke-linecap', 'round');
+                
+                // Insert before the sun group so trail is behind bodies
+                const sunGroup = document.getElementById('sun-group');
+                svg.insertBefore(line, sunGroup);
+            }
+            
+            // Clear the main trail path (we use individual segments now)
+            document.getElementById('moon-trail').setAttribute('d', '');
+        }
+        
+        // ========================================
+        // MAIN UPDATE
+        // ========================================
+        
+        function updateVisualization(date) {
+            const D = getDaysSinceJ2000(date);
+            
+            const sunLon = calculateSunLongitude(D);
+            const moonPos = calculateMoonPosition(D, sunLon);
+            const nodeLon = calculateAscendingNode(D);
+            
+            // Positions
+            const sunXY = lonLatToXY(sunLon, 0, ORBIT_R);
+            const moonLat = moonPos.latitude;
+            const moonXY = lonLatToXY(moonPos.longitude, moonLat, ORBIT_R);
+            
+            document.getElementById('sun-group').setAttribute('transform', `translate(${sunXY.x}, ${sunXY.y})`);
+            document.getElementById('moon-group').setAttribute('transform', `translate(${moonXY.x}, ${moonXY.y})`);
+            
+            // Nodes
+            const ascNodeXY = lonLatToXY(nodeLon, 0, ORBIT_R);
+            const descNodeXY = lonLatToXY(mod360(nodeLon + 180), 0, ORBIT_R);
+            document.getElementById('ascending-node').setAttribute('transform', `translate(${ascNodeXY.x}, ${ascNodeXY.y})`);
+            document.getElementById('descending-node').setAttribute('transform', `translate(${descNodeXY.x}, ${descNodeXY.y})`);
+            
+            const ascSymbolXY = lonLatToXY(nodeLon, 0, ORBIT_R - 20);
+            const descSymbolXY = lonLatToXY(mod360(nodeLon + 180), 0, ORBIT_R - 20);
+            document.getElementById('ascending-node-symbol').setAttribute('x', ascSymbolXY.x);
+            document.getElementById('ascending-node-symbol').setAttribute('y', ascSymbolXY.y + 8);
+            document.getElementById('descending-node-symbol').setAttribute('x', descSymbolXY.x);
+            document.getElementById('descending-node-symbol').setAttribute('y', descSymbolXY.y + 8);
+            
+            // Moon orbit
+            drawMoonOrbit(nodeLon);
+            
+            // Phase lines
+            updatePhaseLines(sunLon);
+            
+            // Elongation
+            const elong = calculateElongation(sunLon, moonPos.longitude);
+            const phaseInfo = getMoonPhaseInfo(elong);
+            
+            // Elongation arc
+            drawElongationArc(sunLon, moonPos.longitude, sunXY, moonXY);
+            
+            // Moon phase shadow on SVG
+            updateMoonPhaseShadow(phaseInfo.positiveElongation, sunLon, moonPos.longitude);
+            
+            // Moon phase icon in card
+            updateMoonPhaseIcon(phaseInfo.positiveElongation);
+            
+            // Moon trail
+            drawMoonTrail(date);
+            
+            // Eclipse check
+            checkEclipseProximity(sunLon, moonPos.longitude, moonLat, nodeLon);
+            
+            // Info displays
+            document.getElementById('sun-longitude').textContent = sunLon.toFixed(2) + '°';
+            document.getElementById('sun-zodiac').textContent = getZodiacPosition(sunLon);
+            
+            document.getElementById('moon-longitude').textContent = moonPos.longitude.toFixed(2) + '°';
+            document.getElementById('moon-latitude').textContent = moonLat.toFixed(2) + '°';
+            document.getElementById('moon-zodiac').textContent = getZodiacPosition(moonPos.longitude);
+            document.getElementById('moon-meridian').textContent = getMeridianTime(sunLon, moonPos.longitude);
+            document.getElementById('moon-elongation').textContent = `${Math.abs(elong).toFixed(1)}° ${elong >= 0 ? 'E' : 'W'}`;
+            
+            // Phase info
+            document.getElementById('moon-phase-name').textContent = phaseInfo.name;
+            document.getElementById('moon-phase-pct').textContent = `${phaseInfo.illumination.toFixed(1)}% illuminated`;
+            
+            document.getElementById('node-asc').textContent = nodeLon.toFixed(2) + '°';
+            document.getElementById('node-desc').textContent = mod360(nodeLon + 180).toFixed(2) + '°';
+            
+            // Venus & Jupiter
+            if (showVenus) {
+                const venusLon = calculateVenusLongitude(D);
+                const venusXY = lonLatToXY(venusLon, 0, ORBIT_R);
+                document.getElementById('venus-marker').setAttribute('x', venusXY.x);
+                document.getElementById('venus-marker').setAttribute('y', venusXY.y + 6);
+                document.getElementById('venus-longitude').textContent = venusLon.toFixed(2) + '°';
+                
+                const jupiterLon = calculateJupiterLongitude(D);
+                const jupiterXY = lonLatToXY(jupiterLon, 0, ORBIT_R);
+                document.getElementById('jupiter-marker').setAttribute('x', jupiterXY.x);
+                document.getElementById('jupiter-marker').setAttribute('y', jupiterXY.y + 6);
+                document.getElementById('jupiter-longitude').textContent = jupiterLon.toFixed(2) + '°';
+            }
+        }
+        
+        // ========================================
+        // STATE MANAGEMENT
+        // ========================================
+        
+        let daysOffset = 0;
+        let timeOffset = 0;
+        let baseDate = null;
+        let showVenus = false;
+        let showTrail = true;
+        let isPlaying = false;
+        let playInterval = null;
+        
+        function updateBaseDate() {
+            const now = new Date();
+            baseDate = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        }
+        
+        function getCurrentDate() {
+            if (!baseDate) updateBaseDate();
+            return new Date(baseDate + (daysOffset * 86400000) + (timeOffset * 1000));
+        }
+        
+        function checkDateChange() {
+            const now = new Date();
+            const currentBaseDate = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+            if (baseDate !== currentBaseDate) {
+                updateBaseDate();
+                updateDayOffsetDisplay();
+                updateDisplay();
+            }
+        }
+        
+        function updateDisplay() {
+            updateVisualization(getCurrentDate());
+        }
+        
+        function updateDayOffsetDisplay() {
+            const display = document.getElementById('day-offset-display');
+            if (daysOffset === 0) display.textContent = 'Today';
+            else if (daysOffset > 0) display.textContent = `+${daysOffset} day${daysOffset > 1 ? 's' : ''}`;
+            else display.textContent = `${daysOffset} day${daysOffset < -1 ? 's' : ''}`;
+            
+            const date = getCurrentDate();
+            const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+            const day = date.getUTCDate().toString().padStart(2, '0');
+            const year = date.getUTCFullYear().toString().slice(-2);
+            document.getElementById('slider-date').textContent = `${month}/${day}/${year}`;
+        }
+        
+        function updateTimeDisplay() {
+            const hours = Math.floor(timeOffset / 3600);
+            const minutes = Math.floor((timeOffset % 3600) / 60);
+            const seconds = timeOffset % 60;
+            document.getElementById('time-display').textContent =
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function getCurrentTimeOffset() {
+            const now = new Date();
+            return now.getUTCHours() * 3600 + now.getUTCMinutes() * 60;
+        }
+        
+        // ========================================
+        // EVENT HANDLERS
+        // ========================================
+        
+        document.getElementById('day-slider').addEventListener('input', function(e) {
+            daysOffset = parseInt(e.target.value);
+            updateDayOffsetDisplay();
+            updateDisplay();
+        });
+        
+        document.getElementById('time-slider').addEventListener('input', function(e) {
+            timeOffset = parseInt(e.target.value);
+            updateTimeDisplay();
+            updateDisplay();
+        });
+        
+        document.getElementById('reset-button').addEventListener('click', function() {
+            daysOffset = 0;
+            timeOffset = getCurrentTimeOffset();
+            document.getElementById('day-slider').value = 0;
+            document.getElementById('time-slider').value = timeOffset;
+            updateDayOffsetDisplay();
+            updateTimeDisplay();
+            updateDisplay();
+        });
+        
+        // Play/pause animation
+        document.getElementById('play-button').addEventListener('click', function() {
+            const btn = this;
+            if (isPlaying) {
+                clearInterval(playInterval);
+                isPlaying = false;
+                btn.textContent = '▶ Play';
+                btn.classList.remove('playing');
+            } else {
+                isPlaying = true;
+                btn.textContent = '■ Stop';
+                btn.classList.add('playing');
+                playInterval = setInterval(() => {
+                    daysOffset = daysOffset + 1;
+                    if (daysOffset > 60) daysOffset = -60;
+                    document.getElementById('day-slider').value = daysOffset;
+                    updateDayOffsetDisplay();
+                    updateDisplay();
+                }, 400);
+            }
+        });
+        
+        document.getElementById('toggle-zodiac').addEventListener('change', function(e) {
+            document.getElementById('zodiac-signs').style.display = e.target.checked ? 'block' : 'none';
+        });
+        
+        document.getElementById('toggle-phase-lines').addEventListener('change', function(e) {
+            document.getElementById('phase-lines').style.display = e.target.checked ? 'block' : 'none';
+        });
+        
+        document.getElementById('toggle-trail').addEventListener('change', function(e) {
+            showTrail = e.target.checked;
+            updateDisplay();
+        });
+        
+        document.getElementById('toggle-venus').addEventListener('change', function(e) {
+            showVenus = e.target.checked;
+            document.getElementById('venus-marker').style.display = showVenus ? 'block' : 'none';
+            document.getElementById('jupiter-marker').style.display = showVenus ? 'block' : 'none';
+            
+            if (showVenus) {
+                document.getElementById('nodes-venus-title').textContent = 'Planets';
+                document.getElementById('nodes-info').style.display = 'none';
+                document.getElementById('venus-info').style.display = 'block';
+            } else {
+                document.getElementById('nodes-venus-title').textContent = 'Lunar Nodes';
+                document.getElementById('nodes-info').style.display = 'block';
+                document.getElementById('venus-info').style.display = 'none';
+            }
+            updateDisplay();
+        });
+        
+        // Real-time UTC clock
+        function updateRealUTCClock() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+            });
+            const hours = now.getUTCHours().toString().padStart(2, '0');
+            const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+            
+            document.getElementById('real-utc-date').textContent = dateStr;
+            document.getElementById('real-utc-clock').textContent = `${hours}:${minutes}`;
+            checkDateChange();
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft' && !e.altKey) {
+                daysOffset = Math.max(-60, daysOffset - 1);
+                document.getElementById('day-slider').value = daysOffset;
+                updateDayOffsetDisplay();
+                updateDisplay();
+            } else if (e.key === 'ArrowRight' && !e.altKey) {
+                daysOffset = Math.min(60, daysOffset + 1);
+                document.getElementById('day-slider').value = daysOffset;
+                updateDayOffsetDisplay();
+                updateDisplay();
+            } else if (e.key === 'ArrowLeft' && e.altKey) {
+                timeOffset = Math.max(0, timeOffset - 3600);
+                document.getElementById('time-slider').value = timeOffset;
+                updateTimeDisplay();
+                updateDisplay();
+            } else if (e.key === 'ArrowRight' && e.altKey) {
+                timeOffset = Math.min(86399, timeOffset + 3600);
+                document.getElementById('time-slider').value = timeOffset;
+                updateTimeDisplay();
+                updateDisplay();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                document.getElementById('play-button').click();
+            }
+        });
+        
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+        
+        updateBaseDate();
+        const initialTime = getCurrentTimeOffset();
+        timeOffset = initialTime;
+        document.getElementById('time-slider').value = initialTime;
+        
+        drawZodiacSigns();
+        updateDayOffsetDisplay();
+        updateTimeDisplay();
+        updateDisplay();
+        updateRealUTCClock();
+        setInterval(updateRealUTCClock, 1000);
+    </script>
+</body>
+</html>
