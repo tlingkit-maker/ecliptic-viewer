@@ -704,8 +704,16 @@
                         <span class="info-value" id="venus-longitude">---</span>
                     </div>
                     <div class="info-row">
+                        <span class="info-label" style="padding-left:1rem">Elongation</span>
+                        <span class="info-value" id="venus-elongation">---</span>
+                    </div>
+                    <div class="info-row">
                         <span class="info-label">Jupiter</span>
                         <span class="info-value" id="jupiter-longitude">---</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" style="padding-left:1rem">Elongation</span>
+                        <span class="info-value" id="jupiter-elongation">---</span>
                     </div>
                 </div>
             </div>
@@ -1853,6 +1861,43 @@
                 document.getElementById('jupiter-marker').setAttribute('x', jupiterXY.x);
                 document.getElementById('jupiter-marker').setAttribute('y', jupiterXY.y + 6);
                 document.getElementById('jupiter-longitude').textContent = jupiterLon.toFixed(2) + '°';
+                
+                // Planet elongations (angle from Sun, with E/W direction)
+                function planetElongation(planetLon, sLon) {
+                    let diff = planetLon - sLon;
+                    if (diff > 180) diff -= 360;
+                    if (diff < -180) diff += 360;
+                    return diff; // positive = East, negative = West
+                }
+                
+                const venusElong = planetElongation(venusLon, sunLon);
+                const jupiterElong = planetElongation(jupiterLon, sunLon);
+                
+                // Yesterday's elongations for color coding
+                const Dyesterday = D - 1;
+                const sunLonYesterday = calculateSunLongitude(Dyesterday);
+                const venusLonYesterday = calculateVenusLongitude(Dyesterday);
+                const jupiterLonYesterday = calculateJupiterLongitude(Dyesterday);
+                const venusElongYesterday = planetElongation(venusLonYesterday, sunLonYesterday);
+                const jupiterElongYesterday = planetElongation(jupiterLonYesterday, sunLonYesterday);
+                
+                // Color: green if |elongation| increasing, red if decreasing, yellow if ~same
+                function elongColor(today, yesterday) {
+                    const diff = Math.abs(today) - Math.abs(yesterday);
+                    if (diff > 0.05) return '#4ade80'; // green — increasing
+                    if (diff < -0.05) return '#ef4444'; // red — decreasing
+                    return '#ffd700'; // yellow — about the same
+                }
+                
+                const venusElongEl = document.getElementById('venus-elongation');
+                const dir = venusElong >= 0 ? 'E' : 'W';
+                venusElongEl.textContent = Math.abs(venusElong).toFixed(1) + '° ' + dir;
+                venusElongEl.style.color = elongColor(venusElong, venusElongYesterday);
+                
+                const jupiterElongEl = document.getElementById('jupiter-elongation');
+                const jDir = jupiterElong >= 0 ? 'E' : 'W';
+                jupiterElongEl.textContent = Math.abs(jupiterElong).toFixed(1) + '° ' + jDir;
+                jupiterElongEl.style.color = elongColor(jupiterElong, jupiterElongYesterday);
             }
         }
         
